@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DVTM: Damn Vulnerable Threat Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F3F6F9; --surface:#FFFFFF; --board:#FBFCFE; --grid:#E3E9F0;
+  --ink:#1B2A3A; --muted:#556576; --line:#D5DDE6; --line-strong:#AFBDCB;
+  --accent:#1F5FBF; --accent-ink:#FFFFFF; --accent-soft:#E4EDFA;
+  --tb:#C2342C; --good:#2B7A4B; --bad:#C2342C; --warn:#9A620F;
+  --s:#7448C0; --t:#B8650F; --r:#5F6E17; --i:#13789A; --d:#B0346A; --e:#8A5526;
+  --font:'Public Sans', -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --hand:'Architects Daughter', 'Segoe Print', 'Bradley Hand', 'Comic Sans MS', cursive;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top, 0px);
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0F161E; --surface:#16202A; --board:#131C25; --grid:#1D2934;
+    --ink:#E1E8F0; --muted:#9AA9B9; --line:#273543; --line-strong:#3D4E60;
+    --accent:#7DA9F3; --accent-ink:#0F161E; --accent-soft:#1B2B42;
+    --tb:#F2726B; --good:#64C08A; --bad:#F2726B; --warn:#E2AA4E;
+    --s:#B190EC; --t:#EBA35F; --r:#BBC760; --i:#60C3DF; --d:#E880AA; --e:#D7A574;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0F161E; --surface:#16202A; --board:#131C25; --grid:#1D2934;
+  --ink:#E1E8F0; --muted:#9AA9B9; --line:#273543; --line-strong:#3D4E60;
+  --accent:#7DA9F3; --accent-ink:#0F161E; --accent-soft:#1B2B42;
+  --tb:#F2726B; --good:#64C08A; --bad:#F2726B; --warn:#E2AA4E;
+  --s:#B190EC; --t:#EBA35F; --r:#BBC760; --i:#60C3DF; --d:#E880AA; --e:#D7A574;
+  color-scheme: dark;
+}
+html{scroll-padding-top:calc(env(safe-area-inset-top, 0px) + 72px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top, 0px);z-index:10;background:var(--surface)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* Header */
+.top{position:sticky;top:env(safe-area-inset-top, 0px);z-index:6;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px 20px;padding:10px 20px;flex-wrap:wrap}
+.brand{display:flex;align-items:baseline;gap:10px;text-decoration:none;color:var(--ink)}
+.brand b{font-family:var(--hand);font-size:27px;font-weight:400;line-height:1}
+.brand span{color:var(--muted);font-size:14px}
+.level{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:14px;color:var(--muted)}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{font:inherit;font-size:14px;border:0;background:transparent;color:var(--ink);padding:6px 14px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--surface);font-weight:600}
+
+/* Shell */
+.shell{display:grid;grid-template-columns:224px minmax(0,1fr)}
+.side{border-right:1px solid var(--line);padding:14px 12px 24px;position:sticky;top:calc(env(safe-area-inset-top, 0px) + 57px);align-self:start;max-height:calc(100vh - 57px);overflow:auto}
+.side h2{font-size:13px;color:var(--muted);font-weight:600;margin:18px 10px 6px}
+.side h2:first-child{margin-top:4px}
+.side a{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 10px;border-radius:7px;color:var(--ink);text-decoration:none;font-size:15px}
+.side a:hover{background:var(--accent-soft)}
+.side a[aria-current="page"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.side .meta{font-size:12px;color:var(--muted);font-weight:400}
+main{padding:28px 36px 72px;min-width:0;outline:none}
+.wrap{max-width:1200px}
+@media (max-width:880px){
+  .shell{grid-template-columns:1fr}
+  .side{position:static;max-height:none;border-right:0;border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto;padding:8px 12px;background:var(--surface)}
+  .side h2{display:none}
+  .side a{white-space:nowrap}
+  .side .meta{display:none}
+  main{padding:22px 16px 56px}
+  .level{margin-left:0;width:100%;justify-content:space-between}
+}
+
+/* Type */
+h1{font-size:32px;line-height:1.2;font-weight:700;margin:0 0 10px;letter-spacing:-.01em}
+h2{font-size:21px;line-height:1.3;font-weight:650;margin:34px 0 10px}
+h3{font-size:17px;line-height:1.35;font-weight:650;margin:22px 0 6px}
+p{margin:0 0 12px;max-width:72ch}
+.lead{font-size:18px;color:var(--muted);max-width:66ch}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.crumbs{font-size:14px;color:var(--muted);margin-bottom:6px}
+.crumbs a{color:var(--muted)}
+ol.steps-list{padding-left:22px;max-width:70ch}
+ol.steps-list li{margin:6px 0;padding-left:4px}
+ul.plain{padding-left:20px;max-width:70ch}
+ul.plain li{margin:5px 0}
+.hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,420px);gap:32px;align-items:center;margin-bottom:8px}
+.hero h1{font-size:40px;max-width:16ch}
+@media (max-width:1000px){.hero{grid-template-columns:1fr}.hero h1{font-size:32px}}
+
+/* Buttons and form controls */
+.btn{font:inherit;font-size:15px;line-height:1.2;padding:9px 15px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.danger{color:var(--bad);border-color:color-mix(in srgb, var(--bad) 50%, transparent)}
+.btn.link{border:0;background:none;padding:0;color:var(--accent);font-size:14px;text-decoration:underline;text-underline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+input[type=text],select,textarea{font:inherit;font-size:15px;padding:8px 10px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--ink);width:100%}
+textarea{resize:vertical;min-height:70px}
+label.f{display:block;font-size:14px;font-weight:600;margin:0 0 4px}
+.field{margin-bottom:12px}
+.check{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);font-size:15px;cursor:pointer}
+.check input{margin-top:4px;width:17px;height:17px;accent-color:var(--tb)}
+
+/* Lab steps */
+.steps{display:flex;border-bottom:1px solid var(--line);margin:22px 0 24px;overflow-x:auto}
+.steps button{border:0;background:none;padding:10px 16px 11px;font:inherit;font-size:15px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap;display:flex;align-items:center}
+.steps button[aria-selected="true"]{color:var(--ink);border-color:var(--accent);font-weight:600}
+.steps .n{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;border:1.5px solid currentColor;font-size:12px;margin-right:8px;font-weight:600}
+.steps button[aria-selected="true"] .n{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+/* Board (the drawing surface) */
+.board{background-color:var(--board);background-image:linear-gradient(var(--grid) 1px, transparent 1px),linear-gradient(90deg, var(--grid) 1px, transparent 1px);background-size:24px 24px;border:1px solid var(--line-strong);border-radius:10px;padding:10px;overflow-x:auto}
+.board svg{display:block;width:100%;min-width:560px;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);margin-top:10px}
+.legend svg{vertical-align:middle;margin-right:6px}
+.dfd text{font-family:var(--hand)}
+.dfd .shape{fill:var(--surface);stroke:var(--ink);stroke-width:1.7}
+.dfd .bg{fill:var(--surface)}
+.dfd .lbl{font-size:16px;fill:var(--ink);text-anchor:middle}
+.dfd .tb rect{fill:none;stroke:var(--tb);stroke-width:1.6;stroke-dasharray:8 6}
+.dfd .tb text{fill:var(--tb);font-size:15px}
+.dfd .flow .ln{fill:none;stroke:var(--ink);stroke-width:1.5}
+.dfd .flow .hit{fill:none;stroke:transparent;stroke-width:20}
+.dfd .pill rect{fill:var(--surface);stroke:var(--line-strong);stroke-width:1}
+.dfd .pill text{font-family:var(--font);font-size:12px;fill:var(--ink);text-anchor:middle}
+.dfd .clickable{cursor:pointer}
+.dfd .clickable:hover .shape,.dfd .clickable:hover .pill rect{stroke:var(--accent)}
+.dfd .clickable:focus{outline:none}
+.dfd .clickable:focus-visible .shape,.dfd .clickable:focus-visible .pill rect{stroke:var(--accent);stroke-width:3}
+.dfd .sel .shape{stroke:var(--accent);stroke-width:3.2}
+.dfd .sel .pill rect{stroke:var(--accent);stroke-width:2.2}
+.dfd .sel .ln{stroke:var(--accent);stroke-width:2.4}
+.dfd .flow.on .ln{stroke:var(--tb);stroke-width:2.6}
+.dfd .flow.on .pill rect{stroke:var(--tb);stroke-width:1.6;fill:color-mix(in srgb, var(--tb) 10%, var(--surface))}
+.dfd .flow.ok .ln{stroke:var(--good);stroke-width:2.4}
+.dfd .flow.ok .pill rect{stroke:var(--good);stroke-width:1.6}
+.dfd .flow.no .ln{stroke:var(--bad);stroke-width:2.4;stroke-dasharray:5 4}
+.dfd .flow.no .pill rect{stroke:var(--bad);stroke-width:1.6}
+.dfd .badge circle{fill:var(--surface);stroke:var(--muted);stroke-width:1.2}
+.dfd .badge text{font-family:var(--font);font-size:11px;font-weight:700;text-anchor:middle;fill:var(--muted)}
+.dfd .badge.done circle{fill:var(--good);stroke:var(--good)}
+.dfd .badge.done text{fill:var(--surface)}
+
+/* Layouts */
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:28px;align-items:start}
+.work{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(330px,1fr);gap:24px;align-items:start}
+.work .stick{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 76px)}
+@media (max-width:1100px){.two,.work{grid-template-columns:1fr}.work .stick{position:static}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.panel h2{margin-top:0}
+.note{border-left:3px solid var(--accent);background:var(--accent-soft);padding:10px 14px;border-radius:0 8px 8px 0;font-size:15px;max-width:72ch;margin:0 0 16px}
+.note.warn{border-color:var(--warn);background:color-mix(in srgb, var(--warn) 10%, transparent)}
+
+/* STRIDE tags and buttons */
+.tag{display:inline-block;font-size:12.5px;font-weight:700;padding:1px 9px;border-radius:999px;color:var(--c);background:color-mix(in srgb, var(--c) 14%, transparent);white-space:nowrap}
+.cS{--c:var(--s)}.cT{--c:var(--t)}.cR{--c:var(--r)}.cI{--c:var(--i)}.cD{--c:var(--d)}.cE{--c:var(--e)}.cN{--c:var(--muted)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted);margin:4px 0 6px}
+.chip{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;font-weight:700;font-size:13px;color:var(--c);border:1.5px solid var(--c)}
+.chip.off{opacity:.28;border-style:dashed}
+.cand{border-top:1px solid var(--line);padding:16px 0 14px}
+.cand:first-of-type{border-top:0}
+.ctext{font-size:15.5px;margin-bottom:10px}
+.cats{display:flex;flex-wrap:wrap;gap:6px}
+.cat{font:inherit;font-size:14px;font-weight:700;min-width:38px;height:34px;padding:0 10px;border-radius:7px;border:1.5px solid color-mix(in srgb, var(--c) 55%, transparent);background:transparent;color:var(--c);cursor:pointer}
+.cat:hover{background:color-mix(in srgb, var(--c) 12%, transparent)}
+.cat[aria-pressed="true"]{background:var(--c);color:var(--surface);border-color:var(--c)}
+.cat.none{font-weight:600;font-size:13.5px}
+.picked{font-size:13.5px;color:var(--muted);margin:6px 0 0;min-height:1.2em}
+.hint{font-size:14px;color:var(--warn);margin:8px 0 0}
+fieldset.mit{border:0;padding:0;margin:12px 0 0;min-width:0}
+.mit legend{font-size:13.5px;font-weight:600;padding:0;margin-bottom:2px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:5px 0;font-size:14.5px;line-height:1.45;cursor:pointer}
+.opt input{margin-top:3px;width:16px;height:16px;flex:none;accent-color:var(--accent)}
+.progress{height:6px;background:var(--line);border-radius:3px;overflow:hidden;flex:1;min-width:120px}
+.progress span{display:block;height:100%;background:var(--accent)}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;margin-bottom:16px}
+.toolbar .small{white-space:nowrap}
+.targets{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.targets button{font:inherit;font-size:14px;padding:6px 10px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}
+.targets button.done{border-color:var(--good);color:var(--good)}
+
+/* Tables */
+.scroll{overflow-x:auto;margin:6px 0 10px}
+.tbl{width:100%;border-collapse:collapse;font-size:14.5px}
+.tbl th,.tbl td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl td:first-child{white-space:nowrap}
+.tbl th{font-weight:600;color:var(--muted);font-size:13px}
+.tbl td.num,.tbl th.num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* Results */
+.scorebox{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px 28px;margin:4px 0 18px}
+.score{font-size:60px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.score span{font-size:24px;color:var(--muted);font-weight:500;margin-left:6px}
+.verdict{font-size:18px;max-width:46ch}
+.rv{border-top:1px solid var(--line);padding:12px 0}
+.rv .st{font-size:13px;font-weight:700}
+.st.correct,.st.rejected{color:var(--good)}
+.st.wrongcat{color:var(--warn)}
+.st.missed,.st.fp{color:var(--bad)}
+.st.skipped{color:var(--muted)}
+.rv p{margin:4px 0;font-size:15px}
+.copyarea{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;font-size:12.5px;min-height:140px}
+.empty{color:var(--muted);padding:26px 0;text-align:center}
+footer.foot{margin-top:56px;padding-top:16px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{scroll-behavior:auto !important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="#home"><b>DVTM</b><span>Damn Vulnerable Threat Model</span></a>
+  <div class="level" id="level"></div>
+</header>
+<div class="shell">
+  <nav class="side" id="side" aria-label="Labs"></nav>
+  <main id="view" tabindex="-1"></main>
+</div>
+<script>
+// T(id, text, answer, hint, explanation, mitigations [correct first], alsoAccepted)
+const T = (id, text, a, hint, why, mits, alt) => ({ id, text, a, hint, why, mits: mits || [], alt: alt || "" });
+
+const SCEN = [
+{
+  id: "shop", title: "ShopSmart online store", diff: "Beginner",
+  summary: "A small online shop. Customers sign in, fill a basket and pay through a payment gateway; staff manage orders from an admin panel.",
+  brief: [
+    "ShopSmart is a small online store. Customers sign up with an email and password, fill a basket and pay through a third-party payment gateway. After payment, the gateway calls back to the shop to confirm the order.",
+    "Shop staff manage orders and refunds through an admin panel on the same web app. Sessions are kept in a cache server, the app writes events to a log file, and orders and accounts live in a MySQL database on a separate server."
+  ],
+  assets: ["Customer accounts and password hashes", "Names, addresses and order history", "The integrity of prices, payments and refunds", "Admin access to the shop"],
+  vb: [840, 470],
+  boundaries: [
+    { name: "Shop servers", x: 250, y: 30, w: 345, h: 415 },
+    { name: "Database server", x: 625, y: 255, w: 200, h: 190 }
+  ],
+  elements: [
+    { id: "cust", type: "entity", name: "Customer", x: 115, y: 130 },
+    { id: "staff", type: "entity", name: "Shop staff", x: 115, y: 345 },
+    { id: "app", type: "process", name: "Web shop\napp", x: 410, y: 215, r: 54 },
+    { id: "cache", type: "store", name: "Session cache", x: 340, y: 392 },
+    { id: "logs", type: "store", name: "App logs", x: 505, y: 392 },
+    { id: "db", type: "store", name: "Orders DB", x: 725, y: 350 },
+    { id: "pay", type: "entity", name: "Payment\ngateway", x: 725, y: 110 }
+  ],
+  flows: [
+    { id: "f_login", from: "cust", to: "app", label: "Login, checkout", crosses: true, t: 0.62 },
+    { id: "f_admin", from: "staff", to: "app", label: "Admin panel", crosses: true, t: 0.6 },
+    { id: "f_sess", from: "app", to: "cache", label: "Sessions", crosses: false },
+    { id: "f_log", from: "app", to: "logs", label: "Log events", crosses: false },
+    { id: "f_sql", from: "app", to: "db", label: "SQL queries", crosses: true, t: 0.32 },
+    { id: "f_payreq", from: "app", to: "pay", label: "Payment request", crosses: true, bend: -46, t: 0.3 },
+    { id: "f_paycb", from: "pay", to: "app", label: "Payment callback", crosses: true, bend: -46, t: 0.72 }
+  ],
+  threats: {
+    cust: [
+      T("s1", "An attacker logs in as a customer using passwords leaked from another website (credential stuffing).", "S", "Someone is pretending to be a real customer.", "Pretending to be a legitimate user is spoofing. It targets the customer’s identity, an external entity.", ["Offer MFA, rate-limit logins and block known breached passwords", "Encrypt the orders database", "Add a CAPTCHA to the product search"]),
+      T("s2", "A customer says they never placed an order that was delivered to their address.", "R", "The customer is denying an action.", "Denying an action when the system can’t prove otherwise is repudiation.", ["Log order actions with user ID, time and IP, and send confirmation emails", "Disable guest checkout", "Serve the site over HTTPS"]),
+      T("s3", "The customer’s browser slows down on pages with many product photos.", "N", "Would an attacker gain anything?", "This is a performance issue, not a security threat. Keep the threat model focused on what attackers can do.")
+    ],
+    staff: [
+      T("s4", "A phishing email steals a staff member’s password, and the attacker uses the admin panel.", "S", "Someone else is acting as the staff member.", "Using stolen credentials to act as staff is spoofing.", ["Require MFA for staff and allow the admin panel only from the office network or VPN", "Increase the session timeout for staff", "Hide the admin link from the menu"]),
+      T("s5", "A staff member issues refunds to a friend’s card, and nothing records who did it.", "R", "Could anyone prove who did it?", "Without records of who did what, staff can deny actions. That is repudiation.", ["Keep an audit log of admin actions that staff can’t edit", "Show staff fewer orders per page", "Send refunds by bank transfer only"])
+    ],
+    app: [
+      T("s6", "A customer changes the price in the checkout request and pays ₹1 for a laptop.", "T", "What is being changed that shouldn’t be?", "Changing data the server trusts is tampering. Never trust prices sent by the browser.", ["Look up prices on the server and ignore prices sent by the browser", "Hide the price field with CSS", "Minify the JavaScript"]),
+      T("s7", "Error pages show stack traces with database names and file paths.", "I", "What is leaking?", "Leaking internal details is information disclosure, and it helps attackers plan their next step.", ["Show a generic error to users and log the details on the server", "Make the error page match the site design", "Return HTTP 200 for every error"]),
+      T("s8", "A customer opens /admin/orders by guessing the URL, and the page loads.", "E", "The customer gets more rights than intended.", "Reaching admin functions as a normal user is elevation of privilege.", ["Check the user’s role on the server for every admin request", "List /admin in robots.txt so search engines skip it", "Rename /admin to a random-looking path"]),
+      T("s9", "A bot sends thousands of search requests per second and the shop slows to a halt.", "D", "What stops working?", "Overloading the app so real customers can’t use it is denial of service.", ["Rate-limit requests, cache search results and scale out", "Log every search request", "Add more product categories"]),
+      T("s10", "The shop is written in PHP.", "N", "Is this something an attacker does?", "A technology choice is not a threat. Threats describe what can go wrong, not what the system is built with.")
+    ],
+    cache: [
+      T("s11", "Anyone on the shop network can connect to the session cache without a password and read session tokens.", "I", "What could an outsider read?", "Reading session tokens is information disclosure, and it leads straight to account takeover.", ["Require authentication on the cache and accept connections only from the web app", "Keep sessions for a shorter time", "Rename the cache server"]),
+      T("s12", "The session cache pretends to be a customer.", "N", "Can a data store act on its own?", "Data stores don’t act, so they can’t spoof anyone. Spoofing applies to people, systems and processes.")
+    ],
+    logs: [
+      T("s13", "An attacker who gets onto the server edits the log file to hide what they did.", "T", "What happens to the log entries?", "Changing log entries is tampering with the store. Because it erases evidence, repudiation is also accepted.", ["Send logs to a separate append-only log server", "Rotate logs every day", "Compress old log files"], "R"),
+      T("s14", "Customer passwords are written to the log when a login fails.", "I", "Who can read the log file?", "Secrets in logs are exposed to anyone who can read them. That is information disclosure.", ["Never log passwords or tokens, and mask sensitive fields", "Encrypt the log file name", "Write logs only at night"])
+    ],
+    db: [
+      T("s15", "A stolen database backup exposes customer addresses and password hashes.", "I", "What leaks if the backup is taken?", "Exposure of stored data is information disclosure.", ["Encrypt backups, hash passwords with bcrypt or Argon2, and restrict backup access", "Take backups less often", "Store backups on the web server"]),
+      T("s16", "The app’s database account can drop tables, so one SQL injection can wipe all orders.", "T", "Can data be changed or destroyed?", "Destroying or changing stored data is tampering. Denial of service is also accepted. Least privilege limits the damage of any single flaw.", ["Use parameterized queries and a database account without DROP or ALTER rights", "Give the database a longer name", "Hide SQL error messages"], "D"),
+      T("s17", "The database disk fills up and new orders can’t be saved.", "D", "What becomes unavailable?", "A store that can’t accept writes makes the shop unavailable. That is denial of service.", ["Monitor disk space with alerts and plan capacity", "Delete old customer accounts automatically", "Restart the database every night"])
+    ],
+    pay: [
+      T("s18", "An attacker sends a fake “payment successful” callback, pretending to be the payment gateway, and gets goods for free.", "S", "Who is the attacker pretending to be?", "Impersonating the payment gateway is spoofing an external entity.", ["Verify the gateway’s signature on every callback and confirm the payment through the gateway’s API", "Accept callbacks only as POST requests", "Log every callback"]),
+      T("s19", "The payment gateway stores card numbers on its own servers.", "N", "Is this inside the system you control?", "This is the gateway’s responsibility, covered by its PCI DSS compliance. Note the dependency, but model what you control.")
+    ],
+    f_login: [
+      T("s20", "The checkout page loads over plain HTTP, so anyone on café Wi-Fi can read session cookies and card details.", "I", "What can someone on the same network see?", "Reading data in transit is information disclosure on a data flow.", ["Serve everything over HTTPS with HSTS and mark cookies Secure", "Ask customers to use mobile data", "Encode form fields in Base64"]),
+      T("s21", "An attacker on the same network changes the delivery address while the order is in transit.", "T", "What is changed on the way?", "Changing data in transit is tampering on a data flow.", ["Use HTTPS so traffic is encrypted and integrity-protected", "Ask customers to confirm the address by phone", "Make the address field read-only in the page"])
+    ],
+    f_sql: [
+      T("s22", "Database traffic is unencrypted, so anyone who can sniff the server network can read query results.", "I", "Who can read data on the wire?", "Reading data in transit is information disclosure.", ["Encrypt the connection between the app and the database with TLS", "Move the database into the same rack", "Use shorter column names"])
+    ]
+  }
+},
+{
+  id: "bank", title: "PayFlow mobile banking", diff: "Intermediate",
+  summary: "A mobile banking app for transfers, with an API gateway, separate auth and transfer services, one-time passwords by SMS and an audit log.",
+  brief: [
+    "PayFlow is a mobile banking app for transfers between accounts. Customers unlock the app with a PIN or fingerprint. The app calls the bank’s API gateway over the internet with a token.",
+    "The gateway routes logins to the auth service, which checks credentials and sends one-time passwords through an SMS provider, and routes transfers to the transfer service. Balances live in the accounts database, and every transfer is recorded in an audit log."
+  ],
+  assets: ["Customer money and balances", "Login credentials, tokens and one-time passwords", "Transfer history and the audit trail", "Availability of payments"],
+  vb: [840, 500],
+  boundaries: [
+    { name: "Customer’s phone", x: 20, y: 60, w: 200, h: 410 },
+    { name: "Bank cloud (VPC)", x: 250, y: 120, w: 570, h: 365 },
+    { name: "Data tier", x: 605, y: 250, w: 200, h: 220, anchor: "end" }
+  ],
+  elements: [
+    { id: "cust", type: "entity", name: "Customer", x: 120, y: 150 },
+    { id: "mapp", type: "process", name: "Mobile\napp", x: 120, y: 350, r: 50 },
+    { id: "sms", type: "entity", name: "SMS provider", x: 705, y: 58 },
+    { id: "gw", type: "process", name: "API\ngateway", x: 345, y: 300, r: 48 },
+    { id: "auth", type: "process", name: "Auth\nservice", x: 500, y: 195, r: 48 },
+    { id: "xfer", type: "process", name: "Transfer\nservice", x: 480, y: 410, r: 50 },
+    { id: "accts", type: "store", name: "Accounts DB", x: 705, y: 320 },
+    { id: "audit", type: "store", name: "Audit log", x: 705, y: 420 }
+  ],
+  flows: [
+    { id: "f_unlock", from: "cust", to: "mapp", label: "PIN / fingerprint", crosses: false },
+    { id: "f_api", from: "mapp", to: "gw", label: "API calls", crosses: true, t: 0.5, dy: -18 },
+    { id: "f_login", from: "gw", to: "auth", label: "Login, OTP check", crosses: false, t: 0.45, dx: -52 },
+    { id: "f_xfer", from: "gw", to: "xfer", label: "Transfers", crosses: false, dx: -34 },
+    { id: "f_otp", from: "auth", to: "sms", label: "OTP code", crosses: true, t: 0.4, dx: -40 },
+    { id: "f_cred", from: "auth", to: "accts", label: "Check credentials", crosses: true, t: 0.33 },
+    { id: "f_bal", from: "xfer", to: "accts", label: "Update balances", crosses: true, t: 0.4, dy: -14 },
+    { id: "f_audit", from: "xfer", to: "audit", label: "Audit events", crosses: true, t: 0.42, dy: 14 }
+  ],
+  threats: {
+    cust: [
+      T("b1", "A fraudster convinces the mobile carrier to move the customer’s number to a new SIM and receives their one-time passwords.", "S", "Who ends up looking like the customer?", "Taking over the customer’s phone number lets the attacker pass as the customer. That is spoofing.", ["Offer an app-based or passkey second factor and flag recent SIM changes", "Make one-time passwords 8 digits long", "Also send one-time passwords by email"]),
+      T("b2", "A customer disputes a transfer they actually made.", "R", "Can the bank prove the customer did it?", "Denying a real action is repudiation. Strong evidence settles disputes.", ["Keep signed, timestamped transaction records with device ID and the authentication used", "Limit customers to one transfer per day", "Hide the transfer history in the app"])
+    ],
+    mapp: [
+      T("b3", "The app keeps the long-lived refresh token in plain text in shared storage, where other apps or a rooted phone can read it.", "I", "Where does the secret end up?", "Exposing a token stored on the device is information disclosure.", ["Store tokens in the Android Keystore or iOS Keychain and keep their lifetimes short", "Rename the token file", "Encode the token in Base64"]),
+      T("b4", "An attacker decompiles the app and finds a hard-coded API key for an internal admin API.", "I", "What does reverse engineering reveal?", "A secret shipped inside the app is disclosed to anyone who decompiles it. Elevation of privilege is also accepted, since the key grants admin rights.", ["Never ship secrets in the app, and protect admin APIs with per-user authentication", "Obfuscate the app code", "Split the key into two strings"], "E"),
+      T("b5", "A modified version of the app skips the check that blocks transfers above the daily limit.", "T", "Where is the limit really enforced?", "Modifying the client to change its behaviour is tampering. Elevation of privilege is also accepted. Any check that runs on the phone can be bypassed.", ["Enforce limits on the server and treat the app as untrusted", "Add root detection to the app", "Obfuscate the app code"], "E")
+    ],
+    gw: [
+      T("b6", "An attacker floods the login endpoint with millions of requests, and real customers can’t log in.", "D", "What stops working for real users?", "Flooding a service so legitimate users are locked out is denial of service.", ["Rate-limit per IP and device, put a WAF in front and autoscale", "Log every login request", "Show a friendly error message"]),
+      T("b7", "The gateway passes requests to internal services without checking the token signature, so a forged token works.", "S", "Who can the attacker claim to be?", "Forging a token to act as another user is spoofing. Elevation of privilege is also accepted.", ["Validate token signature, issuer, audience and expiry at the gateway and in each service", "Make tokens longer", "Send tokens in a custom header"], "E")
+    ],
+    auth: [
+      T("b8", "One-time passwords never expire and can be retried without limit, so a 6-digit code can be guessed.", "S", "What does guessing the code let the attacker do?", "Guessing the code lets the attacker authenticate as the customer. That is spoofing.", ["Expire codes after a few minutes and lock after 5 wrong attempts", "Send the code twice", "Use letters instead of digits"]),
+      T("b9", "The login error says whether an account number exists.", "I", "What does the message reveal?", "Revealing which accounts exist is information disclosure, and it helps targeted attacks.", ["Use the same message for an unknown account and a wrong password", "Make the error message red", "Add a delay only for valid accounts"]),
+      T("b10", "The auth service is written in Go instead of Java.", "N", "Is this an attack?", "A language choice is not a threat. Describe what an attacker could do instead.")
+    ],
+    xfer: [
+      T("b11", "Changing fromAccount in the transfer request lets a user move money out of someone else’s account.", "E", "Whose rights does the user get?", "Acting on another customer’s account is elevation of privilege (broken object level authorization). Tampering is also accepted.", ["Check on the server that the logged-in user owns the source account", "Use random-looking account IDs", "Hide the account field in the app"], "T"),
+      T("b12", "Sending the same transfer request twice in quick succession debits the account twice.", "T", "What happens to the balance?", "Corrupting balances through a race condition is tampering with integrity.", ["Use idempotency keys and database transactions with row locking", "Disable the button after one tap in the app", "Ask customers to wait 10 seconds"]),
+      T("b13", "The transfer service has more lines of code than the other services.", "N", "Would an attacker gain anything?", "Code size is not a threat. Focus on what could go wrong.")
+    ],
+    accts: [
+      T("b14", "A database administrator edits a balance directly, and nobody can tell it happened.", "T", "What is changed, and is there proof?", "Changing stored balances is tampering. Repudiation is also accepted, because the change leaves no trace.", ["Restrict direct database access, require approval for changes, and record all database activity", "Back up the database more often", "Give administrators read-only screens"], "R"),
+      T("b15", "Every internal service connects with the same database user, so any compromised service can read every account.", "I", "Who can read what?", "Broad read access means one breach exposes everything. That is information disclosure.", ["Give each service its own credentials with only the access it needs", "Use a longer database password", "Move the database to another region"])
+    ],
+    audit: [
+      T("b16", "Services can update and delete audit records, so a compromised service can erase the evidence.", "T", "What can happen to the records?", "Changing or deleting audit records is tampering, which enables repudiation. Both are accepted.", ["Use append-only, write-once storage where services can only add entries", "Back up the audit log weekly", "Keep the audit log in the same table as balances"], "R"),
+      T("b17", "The audit log disk fills up, and transfers fail because logging blocks them.", "D", "What stops working?", "A full log store that blocks transfers causes denial of service.", ["Monitor disk space, set a retention policy and alert before it fills", "Turn off audit logging when the disk is full", "Log less detail at weekends"])
+    ],
+    sms: [
+      T("b18", "Fraudsters send messages that appear to come from the bank and ask customers to share their one-time password.", "S", "Who is being impersonated?", "Pretending to be the bank is spoofing. Customers can’t tell real and fake messages apart.", ["Say in every OTP message that the bank never asks for the code, and include the amount and payee", "Send one-time passwords at night only", "Use a shorter sender name"])
+    ],
+    f_api: [
+      T("b19", "The app doesn’t validate TLS certificates properly, so a malicious Wi-Fi proxy can read and change API calls.", "I", "What can a network attacker do?", "Reading traffic in transit is information disclosure. Tampering is also accepted, since the proxy can change calls.", ["Validate certificates strictly and consider certificate pinning", "Use a VPN only on public Wi-Fi", "Compress the API traffic"], "T")
+    ],
+    f_otp: [
+      T("b20", "SMS travels over the mobile network, where codes can be intercepted.", "I", "Who else could see the code?", "Interception of the code in transit is information disclosure.", ["Prefer in-app approval or passkeys for high-value transfers", "Make the SMS shorter", "Send each code twice"])
+    ]
+  }
+},
+{
+  id: "med", title: "MediTrack patient portal", diff: "Advanced",
+  summary: "A hospital patient portal with document uploads, cloud file storage, a lab partner webhook and an audit log for regulated health data.",
+  brief: [
+    "MediTrack is a patient portal for a hospital group. Patients log in to read their records and upload documents such as prescriptions and scans. Doctors view and annotate records.",
+    "Uploads go through an upload service into cloud file storage. An external lab partner sends test results to a webhook receiver, which saves them in the records database. Health data is regulated, so the portal records every access in an audit log."
+  ],
+  assets: ["Medical records and test results", "Uploaded documents", "Patient and doctor accounts", "The audit trail regulators rely on"],
+  vb: [840, 530],
+  boundaries: [
+    { name: "Hospital cloud", x: 230, y: 30, w: 590, h: 485 },
+    { name: "Data zone", x: 610, y: 62, w: 195, h: 300, anchor: "end" }
+  ],
+  elements: [
+    { id: "patient", type: "entity", name: "Patient", x: 110, y: 110 },
+    { id: "doctor", type: "entity", name: "Doctor", x: 110, y: 285 },
+    { id: "lab", type: "entity", name: "Lab partner", x: 110, y: 455 },
+    { id: "portal", type: "process", name: "Patient\nportal", x: 375, y: 195, r: 52 },
+    { id: "upload", type: "process", name: "Upload\nservice", x: 505, y: 105, r: 46 },
+    { id: "hook", type: "process", name: "Webhook\nreceiver", x: 430, y: 450, r: 48 },
+    { id: "audit", type: "store", name: "Audit log", x: 360, y: 340 },
+    { id: "files", type: "store", name: "File storage", x: 707, y: 125 },
+    { id: "records", type: "store", name: "Records DB", x: 707, y: 300 }
+  ],
+  flows: [
+    { id: "f_pat", from: "patient", to: "portal", label: "Login, view, upload", crosses: true, t: 0.62 },
+    { id: "f_doc", from: "doctor", to: "portal", label: "View, annotate", crosses: true, t: 0.6 },
+    { id: "f_up", from: "portal", to: "upload", label: "Files", crosses: false },
+    { id: "f_store", from: "upload", to: "files", label: "Store file", crosses: true, t: 0.45, dy: -20 },
+    { id: "f_rec", from: "portal", to: "records", label: "Read/write records", crosses: true, t: 0.42 },
+    { id: "f_aud", from: "portal", to: "audit", label: "Access events", crosses: false, dx: 4 },
+    { id: "f_lab", from: "lab", to: "hook", label: "Lab results", crosses: true, t: 0.62, dy: -14 },
+    { id: "f_res", from: "hook", to: "records", label: "Save results", crosses: true, t: 0.55 }
+  ],
+  threats: {
+    patient: [
+      T("m1", "Someone uses a patient’s leaked date of birth and phone number to reset the password and read their records.", "S", "Who is the attacker pretending to be?", "Taking over an account through weak recovery is spoofing the patient.", ["Require strong recovery with a second factor, not just personal details", "Ask for the date of birth twice", "Send the new password by SMS"])
+    ],
+    doctor: [
+      T("m2", "A doctor reads a celebrity’s records without treating them, and there is no record of who viewed what.", "R", "Could anyone prove the doctor looked?", "Without access records the doctor can deny it. That is repudiation.", ["Log every record view with user, patient and time, and review unusual access", "Show fewer records per page", "Blur patient names on screen"]),
+      T("m3", "A shared ward computer stays logged in, and the next person uses the doctor’s session.", "S", "Who is acting as the doctor?", "Using another person’s session is spoofing.", ["Short idle timeouts with fast re-login, such as a badge tap or passkey", "A screensaver with the hospital logo", "Longer passwords for doctors"])
+    ],
+    lab: [
+      T("m4", "Anyone on the internet can post fake lab results to the webhook by pretending to be the lab.", "S", "Who is being impersonated?", "Pretending to be the lab partner is spoofing an external entity.", ["Authenticate webhook calls with mutual TLS or signed requests (HMAC)", "Use a hard-to-guess webhook URL", "Accept only JSON requests"]),
+      T("m5", "Staff at the lab partner can see the results they process.", "N", "Is this inside your system?", "This is expected and covered by your contract and data processing agreement with the lab. Model what you control.")
+    ],
+    portal: [
+      T("m6", "Changing patientId=1043 to 1044 in the URL shows another patient’s records.", "E", "Whose data does the user reach?", "Reaching another patient’s data by changing an ID is elevation of privilege (insecure direct object reference). Information disclosure is also accepted.", ["Check on the server that the record belongs to the logged-in user", "Use UUIDs instead of numbers", "Remove the ID from the address bar with JavaScript"], "I"),
+      T("m7", "A patient types a script into their profile name, and it runs in the doctor’s browser.", "E", "Whose rights does the script run with?", "Stored cross-site scripting runs attacker code with the doctor’s rights, so it is elevation of privilege. Tampering is also accepted.", ["Encode output everywhere and add a Content Security Policy", "Limit names to 50 characters", "Check names in the browser before saving"], "T"),
+      T("m8", "The portal uses a dark colour theme.", "N", "Is this a threat?", "A design choice is not a threat.")
+    ],
+    upload: [
+      T("m9", "An attacker uploads a 5 GB file or a zip bomb, and the service runs out of disk and memory.", "D", "What stops working?", "Exhausting resources so the service fails is denial of service.", ["Limit file size and type, set per-user quotas, and process files in a sandbox", "Ask users to upload smaller files", "Compress files after upload"]),
+      T("m10", "A file named ../../app/config.php overwrites a file on the server.", "T", "What gets changed?", "Overwriting server files is tampering. Elevation of privilege is also accepted, since it can lead to code execution.", ["Generate random file names on the server and never use the client’s path", "Block files with “php” in the name", "Upload files in alphabetical order"], "E"),
+      T("m11", "An uploaded PDF contains malware that runs when a doctor opens it.", "E", "What does the attacker gain on the doctor’s computer?", "Running code on a doctor’s machine is elevation of privilege. Tampering is also accepted.", ["Scan uploads and open them in a sandboxed viewer", "Allow only files under 1 MB", "Rename every file to .txt"], "T")
+    ],
+    hook: [
+      T("m12", "The same valid lab message is sent again and again, creating duplicate results.", "T", "What happens to the records?", "Replaying messages corrupts records, which is tampering. Spoofing is also accepted.", ["Sign messages with a timestamp and unique ID, and reject repeats", "Accept only one message per minute", "Log each message twice"], "S"),
+      T("m13", "Error responses to the lab include internal stack traces.", "I", "What leaks?", "Exposing internal details is information disclosure.", ["Return generic errors and log the details internally", "Return errors as images", "Send errors only by email"])
+    ],
+    audit: [
+      T("m14", "Administrators can delete audit entries, so record snooping can be covered up.", "T", "What happens to the evidence?", "Deleting audit entries is tampering, and it enables repudiation. Both are accepted.", ["Use write-once storage with a separate role for log administration", "Back up the audit log monthly", "Keep the audit log in the records database"], "R"),
+      T("m15", "Every audit entry contains the full medical note that was viewed.", "I", "Does the log need this data?", "Copying sensitive data into logs widens who can see it. That is information disclosure.", ["Log who, what and when, but not the medical content itself", "Encrypt the log file name", "Keep logs for 10 years"])
+    ],
+    files: [
+      T("m16", "The storage bucket is public, so anyone with a link can download medical documents.", "I", "Who can read the files?", "Public access to stored documents is information disclosure.", ["Block public access and serve files through short-lived signed links after an authorization check", "Use long random file names", "Hide the bucket name"]),
+      T("m17", "Ransomware with access to the bucket encrypts or deletes every document.", "D", "Can people still get their documents?", "Losing access to the data is denial of service. Tampering is also accepted.", ["Turn on versioning and object lock, and keep offline backups", "Scan the bucket weekly", "Store documents as PDFs only"], "T")
+    ],
+    records: [
+      T("m18", "A developer copies production patient data into a test environment with weak security.", "I", "Where does the real data end up?", "Real data in a weak environment leads to information disclosure.", ["Use masked or synthetic data for testing", "Delete test data every Friday", "Give test environments a different colour"]),
+      T("m19", "The records database pretends to be a doctor.", "N", "Can a data store act?", "Data stores can’t act, so they can’t spoof anyone.")
+    ],
+    f_pat: [
+      T("m20", "Session cookies lack the Secure and HttpOnly flags, so a script or network attacker can steal them.", "I", "What can be stolen?", "Exposure of session cookies is information disclosure, and it leads to account takeover.", ["Set Secure, HttpOnly and SameSite on session cookies", "Make cookies expire in 10 years", "Put the session ID in the URL"])
+    ],
+    f_lab: [
+      T("m21", "Lab results are sent without TLS and can be read or changed in transit.", "T", "What can happen on the way?", "Changing results in transit is tampering. Information disclosure is also accepted.", ["Require TLS, ideally mutual TLS, for all lab traffic", "Send results at night", "Compress the results"], "I")
+    ]
+  }
+}
+];
+const CATS = {
+  S: { name: "Spoofing", prop: "Authentication" },
+  T: { name: "Tampering", prop: "Integrity" },
+  R: { name: "Repudiation", prop: "Non-repudiation" },
+  I: { name: "Information disclosure", prop: "Confidentiality" },
+  D: { name: "Denial of service", prop: "Availability" },
+  E: { name: "Elevation of privilege", prop: "Authorization" }
+};
+const APPLIES = { entity: "SR", process: "STRIDE", store: "TRID", flow: "TID" };
+const TYPE_NAME = { entity: "External entity", process: "Process", store: "Data store", flow: "Data flow" };
+const LEVELS = { low: "Low", medium: "Medium", high: "High" };
+const ASK = {
+  S: { entity: "How could someone pretend to be this person or system?", process: "How could someone impersonate this process, or a caller it trusts?" },
+  T: { process: "Could inputs, requests or code be changed to make it misbehave?", store: "Who could change or delete this data without permission?", flow: "Could someone change this data on the way?" },
+  R: { entity: "Could this person or system deny an action? What would prove it?", process: "Are important actions recorded with who did them and when?", store: "If this store holds logs, could they be altered to hide actions?" },
+  I: { process: "Could errors, responses or caches leak data?", store: "Who could read this data who shouldn’t?", flow: "Could someone read this data on the way?" },
+  D: { process: "How could this be overloaded or crashed?", store: "Could it fill up, be deleted or become unreachable?", flow: "Could this connection be blocked or flooded?" },
+  E: { process: "Could a user get more rights than intended through this process?" }
+};
+
+/* ---------- storage ---------- */
+const KEY = "dvtm-v1";
+let DB = { level: "low", sc: {}, best: {}, sandbox: null };
+try { const raw = localStorage.getItem(KEY); if (raw) DB = Object.assign(DB, JSON.parse(raw)); } catch (e) {}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) {} }
+function scState(id) { if (!DB.sc[id]) DB.sc[id] = { bound: {}, ans: {}, mit: {}, hints: {}, checked: false }; return DB.sc[id]; }
+const UI = { tab: {}, sel: {}, armed: null };
+
+/* ---------- helpers ---------- */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const SC = id => SCEN.find(s => s.id === id);
+const allCands = sc => Object.values(sc.threats).flat();
+function hash(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function mitOrder(c) { return c.mits.map((_, i) => i).sort((a, b) => hash(c.id + "x" + a) - hash(c.id + "x" + b)); }
+function targetName(sc, id) {
+  const el = sc.elements.find(e => e.id === id);
+  if (el) return el.name.replace(/\n/g, " ");
+  const f = sc.flows.find(x => x.id === id);
+  if (!f) return id;
+  const a = sc.elements.find(e => e.id === f.from), b = sc.elements.find(e => e.id === f.to);
+  return `${a.name.replace(/\n/g, " ")} → ${b.name.replace(/\n/g, " ")} (${f.label})`;
+}
+function targetType(sc, id) { const el = sc.elements.find(e => e.id === id); return el ? el.type : "flow"; }
+function tagHTML(k) { return k === "N" ? `<span class="tag cN">Not a threat</span>` : `<span class="tag c${k}" title="${CATS[k].name}">${k} ${CATS[k].name}</span>`; }
+function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
+function bestFor(id) { let b = null; for (const lv of Object.keys(LEVELS)) { const r = DB.best[id + ":" + lv]; if (r && (!b || r.pct > b.pct)) b = r; } return b; }
+
+/* ---------- diagram ---------- */
+function geom(el) { if (el.type === "process") return { kind: "c", r: el.r || 50 }; if (el.type === "store") return { kind: "b", hw: 74, hh: 23 }; return { kind: "b", hw: 68, hh: 28 }; }
+function clip(el, tx, ty) {
+  const g = geom(el), dx = tx - el.x, dy = ty - el.y, L = Math.hypot(dx, dy) || 1;
+  if (g.kind === "c") return [el.x + dx / L * (g.r + 3), el.y + dy / L * (g.r + 3)];
+  const s = Math.min(g.hw / Math.max(Math.abs(dx), 1e-6), g.hh / Math.max(Math.abs(dy), 1e-6));
+  return [el.x + dx * s + dx / L * 3, el.y + dy * s + dy / L * 3];
+}
+function flowGeom(f, map) {
+  const a = map[f.from], b = map[f.to]; let c = null;
+  if (f.bend) { const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1; c = [mx + (-dy / L) * f.bend, my + (dx / L) * f.bend]; }
+  const s = c ? clip(a, c[0], c[1]) : clip(a, b.x, b.y);
+  const e = c ? clip(b, c[0], c[1]) : clip(b, a.x, a.y);
+  const t = f.t ?? 0.5; let p;
+  if (c) { const u = 1 - t; p = [u * u * s[0] + 2 * u * t * c[0] + t * t * e[0], u * u * s[1] + 2 * u * t * c[1] + t * t * e[1]]; }
+  else p = [s[0] + (e[0] - s[0]) * t, s[1] + (e[1] - s[1]) * t];
+  p = [p[0] + (f.dx || 0), p[1] + (f.dy || 0)];
+  const r = n => n.toFixed(1);
+  const d = c ? `M${r(s[0])},${r(s[1])} Q${r(c[0])},${r(c[1])} ${r(e[0])},${r(e[1])}` : `M${r(s[0])},${r(s[1])} L${r(e[0])},${r(e[1])}`;
+  return { d, p };
+}
+function badge(x, y, n, done) {
+  return `<g class="badge${done ? " done" : ""}" aria-hidden="true"><circle cx="${x}" cy="${y}" r="11"/><text x="${x}" y="${y + 4}">${done ? "✓" : n}</text></g>`;
+}
+function renderDFD(sc, o = {}) {
+  const map = Object.fromEntries(sc.elements.map(e => [e.id, e]));
+  const [W, H] = sc.vb;
+  const counts = o.counts || {}, done = o.done || new Set(), bound = o.bound || {};
+  let s = `<svg class="dfd" viewBox="0 0 ${W} ${H}" role="group" aria-label="Data flow diagram: ${esc(sc.title)}"><defs>`;
+  for (const k of ["ink", "accent", "tb", "good", "bad"]) s += `<marker id="ar-${k}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" style="fill:var(--${k})"/></marker>`;
+  s += `</defs>`;
+  for (const b of sc.boundaries || []) s += `<g class="tb"><rect x="${b.x}" y="${b.y}" width="${b.w}" height="${b.h}" rx="14"/><text x="${b.anchor === "end" ? b.x + b.w - 12 : b.x + 12}" y="${b.y + 22}"${b.anchor === "end" ? ' text-anchor="end"' : ""}>${esc(b.name)}</text></g>`;
+  for (const e of sc.elements) {
+    const clickable = o.mode === "threat" && counts[e.id];
+    let cls = "el" + (clickable ? " clickable" : "") + (o.sel === e.id ? " sel" : "");
+    const attrs = clickable ? ` id="t-${e.id}" data-target="${e.id}" tabindex="0" role="button" aria-label="Review threats on ${esc(e.name.replace(/\n/g, " "))}"` : "";
+    s += `<g class="${cls}"${attrs}>`;
+    const g = geom(e); let bx, by;
+    if (e.type === "process") { s += `<circle class="shape" cx="${e.x}" cy="${e.y}" r="${g.r}"/>`; bx = e.x + g.r * 0.72; by = e.y - g.r * 0.72; }
+    else if (e.type === "store") { s += `<rect class="bg" x="${e.x - 74}" y="${e.y - 23}" width="148" height="46"/><path class="shape" style="fill:none" d="M${e.x - 74} ${e.y - 23}H${e.x + 74}M${e.x - 74} ${e.y + 23}H${e.x + 74}M${e.x - 60} ${e.y - 23}V${e.y + 23}"/>`; bx = e.x + 74; by = e.y - 23; }
+    else { s += `<rect class="shape" x="${e.x - 68}" y="${e.y - 28}" width="136" height="56" rx="3"/>`; bx = e.x + 68; by = e.y - 28; }
+    const lines = e.name.split("\n"), x0 = e.type === "store" ? e.x + 7 : e.x;
+    lines.forEach((ln, i) => { s += `<text class="lbl" x="${x0}" y="${e.y + 6 + (i - (lines.length - 1) / 2) * 18}">${esc(ln)}</text>`; });
+    if (clickable) s += badge(bx, by, counts[e.id], done.has(e.id));
+    s += `</g>`;
+  }
+  for (const f of sc.flows) {
+    const g = flowGeom(f, map); let cls = "flow", mk = "ink";
+    if (o.mode === "bound" && bound[f.id]) { cls += " on"; mk = "tb"; }
+    if (o.mode === "sandbox" && f.crosses) { cls += " on"; mk = "tb"; }
+    if (o.mode === "results") { const ok = !!bound[f.id] === f.crosses; cls += ok ? " ok" : " no"; mk = ok ? "good" : "bad"; }
+    const clickable = o.mode === "bound" || (o.mode === "threat" && counts[f.id]);
+    if (clickable) cls += " clickable";
+    if (o.sel === f.id) { cls += " sel"; mk = "accent"; }
+    const lw = Math.round(Math.max(48, f.label.length * 6.5 + 20));
+    let attrs = "";
+    if (clickable) {
+      const lbl = o.mode === "bound" ? `Data flow ${f.label}: crosses a trust boundary` : `Review threats on data flow ${f.label}`;
+      attrs = ` id="t-${f.id}" data-target="${f.id}" tabindex="0" role="button" aria-label="${esc(lbl)}"` + (o.mode === "bound" ? ` aria-pressed="${!!bound[f.id]}"` : "");
+    }
+    s += `<g class="${cls}"${attrs}><path class="hit" d="${g.d}"/><path class="ln" d="${g.d}" marker-end="url(#ar-${mk})"/><g class="pill"><rect x="${(g.p[0] - lw / 2).toFixed(1)}" y="${(g.p[1] - 11).toFixed(1)}" width="${lw}" height="22" rx="11"/><text x="${g.p[0].toFixed(1)}" y="${(g.p[1] + 4).toFixed(1)}">${esc(f.label)}</text></g>`;
+    if (o.mode === "threat" && counts[f.id]) s += badge(+(g.p[0] + lw / 2).toFixed(1), +(g.p[1] - 11).toFixed(1), counts[f.id], done.has(f.id));
+    s += `</g>`;
+  }
+  return s + `</svg>`;
+}
+const LEGEND = `<div class="legend" aria-hidden="true">
+ <span><svg width="26" height="16"><rect x="1" y="1" width="24" height="14" rx="2" fill="none" style="stroke:var(--ink)" stroke-width="1.5"/></svg>External entity</span>
+ <span><svg width="18" height="18"><circle cx="9" cy="9" r="7.5" fill="none" style="stroke:var(--ink)" stroke-width="1.5"/></svg>Process</span>
+ <span><svg width="28" height="16"><path d="M1 2H27M1 14H27M5 2V14" fill="none" style="stroke:var(--ink)" stroke-width="1.5"/></svg>Data store</span>
+ <span><svg width="30" height="10"><path d="M1 5H24" style="stroke:var(--ink)" stroke-width="1.5"/><path d="M22 1L29 5L22 9z" style="fill:var(--ink)"/></svg>Data flow</span>
+ <span><svg width="30" height="16"><rect x="1" y="1" width="28" height="14" rx="4" fill="none" style="stroke:var(--tb)" stroke-width="1.5" stroke-dasharray="4 3"/></svg>Trust boundary</span>
+</div>`;
+
+/* ---------- scoring ---------- */
+function judge(c, st) {
+  const u = st.ans[c.id];
+  if (c.a === "N") return u === "N" ? "rejected" : u ? "fp" : "skipped";
+  if (u && u !== "N" && (u === c.a || c.alt.includes(u))) return "correct";
+  if (u && u !== "N") return "wrongcat";
+  return "missed";
+}
+function score(sc, st) {
+  const r = { total: 0, max: 0, boundOk: 0, boundN: sc.flows.length, correct: 0, wrongcat: 0, missed: 0, fp: 0, rejected: 0, skipped: 0, mitOk: 0, mitN: 0, hints: 0 };
+  for (const f of sc.flows) { r.max++; if (!!st.bound[f.id] === f.crosses) { r.boundOk++; r.total++; } }
+  for (const c of allCands(sc)) {
+    const j = judge(c, st); r[j]++;
+    if (c.a === "N") { r.max += 1; if (j === "rejected") r.total += 1; if (j === "fp") r.total -= 1; }
+    else {
+      r.max += 3; r.mitN++;
+      if (j === "correct") r.total += 2; if (j === "wrongcat") r.total += 1;
+      if ((j === "correct" || j === "wrongcat") && st.mit[c.id] === 0) { r.total += 1; r.mitOk++; }
+    }
+  }
+  if (DB.level === "medium") { r.hints = Object.values(st.hints).filter(Boolean).length; r.total -= r.hints; }
+  r.total = Math.max(0, r.total); r.pct = pct(r.total, r.max);
+  return r;
+}
+
+/* ---------- navigation ---------- */
+function navHTML(route) {
+  const a = (id, label, meta) => `<a href="#${id}"${route === id ? ' aria-current="page"' : ""}>${label}${meta ? `<span class="meta">${meta}</span>` : ""}</a>`;
+  let h = `<h2>Start here</h2>${a("home", "Home")}${a("primer", "STRIDE primer")}<h2>Labs</h2>`;
+  for (const sc of SCEN) { const b = bestFor(sc.id); h += a(sc.id, sc.title.split(" ")[0], b ? b.pct + "%" : sc.diff); }
+  h += `<h2>Practice</h2>${a("sandbox", "Model your own system")}${a("scores", "My progress")}`;
+  return h;
+}
+function levelHTML() {
+  return `<span id="lvl-label">Security level</span><div class="seg" role="group" aria-labelledby="lvl-label">` +
+    Object.entries(LEVELS).map(([k, v]) => `<button type="button" data-level="${k}" aria-pressed="${DB.level === k}">${v}</button>`).join("") + `</div>`;
+}
+
+/* ---------- views ---------- */
+function viewHome() {
+  const rows = SCEN.map(sc => {
+    const b = bestFor(sc.id), n = allCands(sc).length;
+    return `<tr><td><a href="#${sc.id}">${esc(sc.title)}</a></td><td>${sc.diff}</td><td>${esc(sc.summary)}</td><td class="num">${sc.elements.length + sc.flows.length}</td><td class="num">${n}</td><td class="num">${b ? b.pct + "%" : "Not started"}</td></tr>`;
+  }).join("");
+  return `<div class="wrap">
+  <div class="hero">
+    <div>
+      <h1>Practice threat modeling on systems built to be broken</h1>
+      <p class="lead">DVTM is a hands-on lab, like DVWA, but for design. Each lab gives you a system and its data flow diagram. You mark where trust changes, classify threats with STRIDE, choose mitigations, and get scored with an explanation for every answer.</p>
+      <div class="row" style="margin-top:18px"><a class="btn primary" href="#shop">Start the ShopSmart lab</a><a class="btn" href="#primer">Read the STRIDE primer</a></div>
+    </div>
+    <div class="board" style="padding:6px">${renderDFD(SC("shop"), { mode: "view" })}</div>
+  </div>
+  <h2>How a lab works</h2>
+  <ol class="steps-list">
+    <li>Read the brief and study the data flow diagram.</li>
+    <li>Mark every data flow that crosses a trust boundary. Most threats live where data crosses one.</li>
+    <li>Select each element and classify its candidate threats with STRIDE. Some candidates are distractors: reject anything that isn’t a real threat to that element.</li>
+    <li>Choose the best mitigation for each real threat.</li>
+    <li>Check your model, read the review, and copy the threat register.</li>
+  </ol>
+  <h2>Security level</h2>
+  <p>Like DVWA, the level changes how much help you get. Switch it at the top of the page at any time.</p>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Level</th><th>What you get</th><th>Good for</th></tr></thead><tbody>
+    <tr><td>Low</td><td>A hint on every threat, and the STRIDE categories that usually apply to each element type.</td><td>Your first attempt</td></tr>
+    <tr><td>Medium</td><td>The STRIDE guide per element. Hints only on request, and each one costs 1 point.</td><td>Your second attempt</td></tr>
+    <tr><td>High</td><td>No hints and no guide. Just the diagram and STRIDE.</td><td>Proving you’ve got it</td></tr>
+  </tbody></table></div>
+  <h2>Labs</h2>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Lab</th><th>Difficulty</th><th>System</th><th class="num">Items</th><th class="num">Threats</th><th class="num">Your best</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <h2>Then model your own system</h2>
+  <p>When you’ve finished the labs, use <a href="#sandbox">Model your own system</a> to draw a real application, work through STRIDE with guiding questions, rate the risks and export a threat register.</p>
+  <footer class="foot">All systems in these labs are fictional and the scenarios are for training. Your progress is saved in this browser only.</footer>
+  </div>`;
+}
+
+function viewPrimer() {
+  const rows = [
+    ["S", "Can someone pretend to be this user or system?", "MFA, strong sessions, signed requests, mutual TLS"],
+    ["T", "Can someone change data, code or requests they shouldn’t?", "Server-side validation, integrity checks, TLS, least privilege"],
+    ["R", "Could someone deny an action, with no proof either way?", "Tamper-proof audit logs, signed transactions, timestamps"],
+    ["I", "Could data leak to someone who shouldn’t see it?", "Encryption, access control, generic errors, data minimization"],
+    ["D", "Could this be overloaded, crashed or made unavailable?", "Rate limits, quotas, autoscaling, backups"],
+    ["E", "Could someone gain rights they shouldn’t have?", "Authorization on every request, least privilege, safe input handling"]
+  ].map(([k, q, m]) => `<tr><td>${tagHTML(k)}</td><td>${CATS[k].prop}</td><td>${q}</td><td>${m}</td></tr>`).join("");
+  const mx = ["entity", "process", "store", "flow"].map(t => `<tr><td>${TYPE_NAME[t]}</td>${"STRIDE".split("").map(k => `<td class="num">${APPLIES[t].includes(k) ? (t === "store" && k === "R" ? "✓ if it holds logs" : "✓") : ""}</td>`).join("")}</tr>`).join("");
+  return `<div class="wrap">
+  <p class="crumbs"><a href="#home">Home</a></p>
+  <h1>STRIDE primer</h1>
+  <p class="lead">STRIDE is a checklist of six ways a system can be attacked. You apply it to each element of a data flow diagram and ask how that element could fail.</p>
+  <h2>The six threat categories</h2>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Threat</th><th>Property it breaks</th><th>Ask yourself</th><th>Typical mitigations</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <h2>Which threats apply to which element</h2>
+  <p>This is the STRIDE-per-element rule. It keeps you from wasting time: a data store can’t spoof anyone, and a data flow can’t deny an action.</p>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Element</th>${"STRIDE".split("").map(k => `<th class="num"><span class="tag c${k}" title="${CATS[k].name}">${k}</span></th>`).join("")}</tr></thead><tbody>${mx}</tbody></table></div>
+  <h2>Reading the diagram</h2>
+  <p>A data flow diagram shows who uses the system, what runs, where data is kept and how it moves. A trust boundary is a line where the level of trust changes: the internet and your servers, a phone and the cloud, the app tier and the data tier.</p>
+  ${LEGEND}
+  <h2>Tips that save points</h2>
+  <ul class="plain">
+    <li>Start at the trust boundaries. Data crossing a boundary needs authentication, validation and encryption.</li>
+    <li>A technology choice or a performance issue is not a threat. A threat says what an attacker can do.</li>
+    <li>Spoofing and elevation of privilege need something that acts: a person, a system or a process. Data stores and flows don’t act.</li>
+    <li>Fix it on the server. Anything that runs in a browser or a phone app can be changed by the attacker.</li>
+    <li>Outside your system? Note the dependency, but model what you control.</li>
+  </ul>
+  <div class="row" style="margin-top:22px"><a class="btn primary" href="#shop">Start the ShopSmart lab</a></div>
+  </div>`;
+}
+
+function viewScenario(sc) {
+  const st = scState(sc.id), tab = UI.tab[sc.id] || "brief";
+  const tabs = [["brief", "Read the brief"], ["bound", "Mark trust boundaries"], ["threat", "Find threats"], ["results", "Check your model"]];
+  let h = `<div class="wrap"><p class="crumbs"><a href="#home">Labs</a> / ${sc.diff}, security level ${LEVELS[DB.level]}</p><h1>${esc(sc.title)}</h1><p class="lead">${esc(sc.summary)}</p>`;
+  h += `<div class="steps" role="tablist" aria-label="Lab steps">` + tabs.map(([k, l], i) => `<button role="tab" id="tab-${k}" data-act="tab" data-tab="${k}" aria-selected="${tab === k}"><span class="n">${i + 1}</span>${l}</button>`).join("") + `</div>`;
+  if (tab === "brief") h += briefTab(sc);
+  else if (tab === "bound") h += boundTab(sc, st);
+  else if (tab === "threat") h += threatTab(sc, st);
+  else h += resultsTab(sc, st);
+  return h + `</div>`;
+}
+
+function briefTab(sc) {
+  return `<div class="two">
+    <div>
+      <h2 style="margin-top:0">The system</h2>
+      ${sc.brief.map(p => `<p>${esc(p)}</p>`).join("")}
+      <h3>What you’re protecting</h3>
+      <ul class="plain">${sc.assets.map(a => `<li>${esc(a)}</li>`).join("")}</ul>
+      <h3>Your task</h3>
+      <p>Mark the data flows that cross trust boundaries, then classify ${allCands(sc).length} candidate threats across the elements and flows of this system. Watch out for distractors.</p>
+      <div class="row" style="margin-top:16px"><button class="btn primary" data-act="tab" data-tab="bound">Next: mark trust boundaries</button></div>
+    </div>
+    <div><div class="board">${renderDFD(sc, { mode: "view" })}</div>${LEGEND}</div>
+  </div>`;
+}
+
+function boundTab(sc, st) {
+  const n = Object.values(st.bound).filter(Boolean).length;
+  const map = Object.fromEntries(sc.elements.map(e => [e.id, e.name.replace(/\n/g, " ")]));
+  const list = sc.flows.map(f => `<label class="check"><input type="checkbox" data-bound="${f.id}" ${st.bound[f.id] ? "checked" : ""}><span>${esc(map[f.from])} → ${esc(map[f.to])}<br><span class="muted small">${esc(f.label)}</span></span></label>`).join("");
+  return `<div class="work">
+    <div class="stick"><div class="board">${renderDFD(sc, { mode: "bound", bound: st.bound })}</div>${LEGEND}</div>
+    <div class="panel">
+      <h2>Which flows cross a trust boundary?</h2>
+      <p>Select every data flow whose data moves from one zone of trust to another. Click a flow on the diagram or tick it here. ${n} of ${sc.flows.length} selected.</p>
+      ${DB.level === "low" ? `<p class="hint">Hint: look for arrows that cross a dashed red line. A flow that stays inside one dashed box doesn’t cross a boundary.</p>` : ""}
+      <div style="margin-top:10px">${list}</div>
+      <div class="row" style="margin-top:16px"><button class="btn primary" data-act="tab" data-tab="threat">Next: find threats</button></div>
+    </div>
+  </div>`;
+}
+
+function threatTab(sc, st) {
+  const cands = allCands(sc), answered = cands.filter(c => st.ans[c.id]).length;
+  const counts = {}, done = new Set();
+  for (const [id, list] of Object.entries(sc.threats)) { counts[id] = list.length; if (list.every(c => st.ans[c.id])) done.add(id); }
+  const sel = UI.sel[sc.id];
+  const ids = [...sc.elements.map(e => e.id), ...sc.flows.map(f => f.id)].filter(id => counts[id]);
+  const jump = `<div class="targets" aria-label="Elements and flows to review">${ids.map(id => `<button data-act="pick" data-id="${id}" class="${done.has(id) ? "done" : ""}"${sel === id ? ' aria-current="true"' : ""}>${done.has(id) ? "✓ " : ""}${esc(targetName(sc, id))}</button>`).join("")}</div>`;
+  let panel;
+  if (!sel || !counts[sel]) {
+    panel = `<h2>Pick something to analyse</h2><p>Select an element or a data flow on the diagram. The number on each one shows how many candidate threats it has; it turns into a tick once you’ve classified them all.</p>${jump}`;
+  } else {
+    const type = targetType(sc, sel), list = sc.threats[sel];
+    panel = `<h2>${esc(targetName(sc, sel))}</h2><p class="muted small" style="margin-bottom:6px">${TYPE_NAME[type]}, ${list.length} candidate threat${list.length > 1 ? "s" : ""}</p>`;
+    if (DB.level !== "high") panel += `<div class="chips"><span>Usually applies:</span>${"STRIDE".split("").map(k => `<span class="chip c${k}${APPLIES[type].includes(k) ? "" : " off"}" title="${CATS[k].name}${APPLIES[type].includes(k) ? "" : " (rarely applies)"}">${k}</span>`).join("")}</div>`;
+    panel += list.map(c => candHTML(c, st)).join("");
+    const i = ids.indexOf(sel), next = ids[(i + 1) % ids.length];
+    panel += `<div class="row" style="margin-top:6px"><button class="btn" data-act="pick" data-id="${next}">Next: ${esc(targetName(sc, next))}</button></div>`;
+    panel += `<details style="margin-top:16px"><summary class="small">Jump to another element or flow</summary>${jump}</details>`;
+  }
+  return `<div class="toolbar">
+      <span class="small">${answered} of ${cands.length} threats classified</span>
+      <div class="progress" role="progressbar" aria-label="Threats classified" aria-valuemin="0" aria-valuemax="${cands.length}" aria-valuenow="${answered}"><span style="width:${pct(answered, cands.length)}%"></span></div>
+      <button class="btn primary" data-act="check">Check my model</button>
+    </div>
+    <div class="work">
+      <div class="stick"><div class="board">${renderDFD(sc, { mode: "threat", counts, done, sel })}</div>${LEGEND}</div>
+      <div class="panel" id="panel">${panel}</div>
+    </div>`;
+}
+
+function candHTML(c, st) {
+  const u = st.ans[c.id];
+  let h = `<div class="cand"><p class="ctext">${esc(c.text)}</p><div class="cats" role="group" aria-label="Classify this threat">`;
+  for (const k of "STRIDE") h += `<button class="cat c${k}" id="b-${c.id}-${k}" data-act="cat" data-tid="${c.id}" data-cat="${k}" aria-pressed="${u === k}" title="${CATS[k].name}" aria-label="${CATS[k].name}">${k}</button>`;
+  h += `<button class="cat none cN" id="b-${c.id}-N" data-act="cat" data-tid="${c.id}" data-cat="N" aria-pressed="${u === "N"}">Not a threat</button></div>`;
+  h += `<p class="picked">${u ? (u === "N" ? "You marked this as not a real threat." : `You chose ${CATS[u].name}.`) : "Not classified yet."}</p>`;
+  if (DB.level === "low") h += `<p class="hint">Hint: ${esc(c.hint)}</p>`;
+  else if (DB.level === "medium") h += st.hints[c.id] ? `<p class="hint">Hint: ${esc(c.hint)}</p>` : `<button class="btn link" id="h-${c.id}" data-act="hint" data-tid="${c.id}">Show hint (costs 1 point)</button>`;
+  if (u && u !== "N") {
+    const opts = c.mits.length ? mitOrder(c).map(i => [i, c.mits[i]]) : [[99, "Add a control for it in the design"], [98, "Accept the risk and document it"]];
+    h += `<fieldset class="mit"><legend>Best mitigation</legend>` + opts.map(([i, txt]) => `<label class="opt"><input type="radio" name="m-${c.id}" id="m-${c.id}-${i}" data-mit="${c.id}" value="${i}"${st.mit[c.id] === i ? " checked" : ""}><span>${esc(txt)}</span></label>`).join("") + `</fieldset>`;
+  }
+  return h + `</div>`;
+}
+
+function resultsTab(sc, st) {
+  if (!st.checked) return `<div class="empty"><p>You haven’t checked this model yet.</p><button class="btn primary" data-act="check">Check my model</button></div>`;
+  const r = score(sc, st);
+  const verdict = r.pct >= 85 ? "Ready for a real design review. Try the next level up." : r.pct >= 60 ? "A solid model. Read what you missed below, then try again." : "Work through the review below, then reset the lab and try again.";
+  let h = `<div class="scorebox"><div class="score">${r.total}<span>/ ${r.max}</span></div><div><p class="verdict" style="margin:0">${r.pct}% at ${LEVELS[DB.level]} level. ${verdict}</p></div></div>`;
+  const line = (l, v) => `<tr><td>${l}</td><td class="num">${v}</td></tr>`;
+  h += `<div class="two"><div><div class="scroll"><table class="tbl"><tbody>
+    ${line("Trust boundaries marked correctly", `${r.boundOk} of ${r.boundN}`)}
+    ${line("Real threats classified correctly", r.correct)}
+    ${line("Real threats found, wrong category", r.wrongcat)}
+    ${line("Real threats missed", r.missed)}
+    ${line("Distractors correctly rejected", r.rejected)}
+    ${line("False positives (distractors marked as threats)", r.fp)}
+    ${line("Best mitigation chosen", `${r.mitOk} of ${r.mitN}`)}
+    ${DB.level === "medium" ? line("Hints used (1 point each)", r.hints) : ""}
+  </tbody></table></div>
+  <p class="small muted">Scoring: a real threat earns 2 points for the right category, 1 for the wrong one, and 1 more for the best mitigation. Rejecting a distractor earns 1 point; marking it as a threat loses 1.</p>
+  <div class="row" style="margin-top:12px"><button class="btn" data-act="tab" data-tab="threat">Edit my answers</button><button class="btn danger" data-act="reset-sc">${UI.armed === "sc-" + sc.id ? "Click again to reset" : "Reset this lab"}</button></div>
+  </div><div><div class="board">${renderDFD(sc, { mode: "results", bound: st.bound })}</div><p class="small muted" style="margin-top:8px">Green flows: you marked the boundary correctly. Red dashed flows: you got the boundary wrong.</p></div></div>`;
+  h += `<h2>Review</h2>`;
+  const label = { correct: "Correct", wrongcat: "Found, wrong category", missed: "Missed", fp: "False positive", rejected: "Correctly rejected", skipped: "Not answered" };
+  for (const [id, list] of Object.entries(sc.threats)) {
+    h += `<h3>${esc(targetName(sc, id))}</h3>`;
+    for (const c of list) {
+      const j = judge(c, st), u = st.ans[c.id];
+      const alt = c.alt ? c.alt.split("").map(k => CATS[k].name).join(", ") : "";
+      h += `<div class="rv"><span class="st ${j}">${label[j]}</span><p>${esc(c.text)}</p><p class="small">Your answer: ${u ? tagHTML(u) : "none"} &nbsp; Answer: ${tagHTML(c.a)}${alt ? ` <span class="muted">(also accepted: ${alt})</span>` : ""}</p><p class="small muted">${esc(c.why)}</p>`;
+      if (c.a !== "N") {
+        const m = st.mit[c.id];
+        const mark = (j === "correct" || j === "wrongcat") ? (m === 0 ? " You chose this one." : m === undefined ? " You didn’t choose a mitigation." : " You chose a weaker option.") : "";
+        h += `<p class="small">Best mitigation: ${esc(c.mits[0])}.<span class="muted">${mark}</span></p>`;
+      }
+      h += `</div>`;
+    }
+  }
+  const reg = allCands(sc).filter(c => c.a !== "N");
+  const md = ["| ID | Element | STRIDE | Threat | Mitigation |", "| --- | --- | --- | --- | --- |"]
+    .concat(reg.map((c, i) => { const tid = Object.keys(sc.threats).find(k => sc.threats[k].includes(c)); return `| TM-${String(i + 1).padStart(2, "0")} | ${targetName(sc, tid)} | ${CATS[c.a].name} | ${c.text} | ${c.mits[0]} |`; })).join("\n");
+  h += `<h2>Threat register</h2><p>The model answer for this system, ready to paste into a wiki, ticket or document.</p>
+    <div class="scroll"><table class="tbl"><thead><tr><th>ID</th><th>Element</th><th>STRIDE</th><th>Threat</th><th>Mitigation</th></tr></thead><tbody>${reg.map((c, i) => { const tid = Object.keys(sc.threats).find(k => sc.threats[k].includes(c)); return `<tr><td>TM-${String(i + 1).padStart(2, "0")}</td><td>${esc(targetName(sc, tid))}</td><td>${tagHTML(c.a)}</td><td>${esc(c.text)}</td><td>${esc(c.mits[0])}</td></tr>`; }).join("")}</tbody></table></div>
+    <div class="row" style="margin:8px 0"><button class="btn" data-act="copy" data-src="md-${sc.id}">Copy as Markdown</button></div>
+    <textarea class="copyarea" id="md-${sc.id}" readonly aria-label="Threat register as Markdown">${esc(md)}</textarea>`;
+  return h;
+}
+
+/* ---------- sandbox ---------- */
+function sb() { if (!DB.sandbox) DB.sandbox = { els: [], flows: [], threats: [], n: 1 }; return DB.sandbox; }
+function wrapName(n) { if (n.length <= 9 || !n.includes(" ")) return n; const mid = n.length / 2; let best = -1; for (let i = 0; i < n.length; i++) if (n[i] === " " && (best < 0 || Math.abs(i - mid) < Math.abs(best - mid))) best = i; return n.slice(0, best) + "\n" + n.slice(best + 1); }
+function sbScenario() {
+  const s = sb(), cols = { entity: [], process: [], store: [] };
+  s.els.forEach(e => cols[e.type].push(e));
+  const X = { entity: 110, process: 400, store: 690 };
+  const H = Math.max(220, Math.max(1, ...Object.values(cols).map(c => c.length)) * 120 + 40);
+  const els = [];
+  for (const k in cols) cols[k].forEach((e, i, arr) => els.push({ id: e.id, type: e.type, name: wrapName(e.name), x: X[k], y: Math.round(H / arr.length * (i + 0.5)), r: 48 }));
+  const pos = Object.fromEntries(els.map(e => [e.id, e]));
+  const flows = s.flows.filter(f => pos[f.from] && pos[f.to]).map(f => {
+    const rev = s.flows.some(g => g.from === f.to && g.to === f.from);
+    const same = pos[f.from].x === pos[f.to].x;
+    return { ...f, bend: rev ? 34 : same ? 60 : 0 };
+  });
+  return { title: "Your system", vb: [800, H], elements: els, flows, boundaries: [] };
+}
+function sbTargets() { const s = sb(); const n = Object.fromEntries(s.els.map(e => [e.id, e.name])); return [...s.els.map(e => ({ id: e.id, type: e.type, name: e.name })), ...s.flows.map(f => ({ id: f.id, type: "flow", name: `${n[f.from]} → ${n[f.to]} (${f.label})` }))]; }
+function riskOf(t) { const v = t.like * t.imp; return v >= 6 ? "High" : v >= 3 ? "Medium" : "Low"; }
+function sbGuide(id) {
+  const t = sbTargets().find(x => x.id === id);
+  if (!t) return { html: `<p class="muted small">Add an element first.</p>`, cats: [] };
+  const cats = APPLIES[t.type].split("");
+  return { html: `<p class="small muted" style="margin-bottom:6px">${TYPE_NAME[t.type]}: ask these questions</p><ul class="plain small">${cats.map(k => `<li>${tagHTML(k)} ${esc(ASK[k][t.type])}</li>`).join("")}</ul>`, cats };
+}
+function viewSandbox() {
+  const s = sb(), tg = sbTargets(), sel = UI.sbTarget && tg.find(t => t.id === UI.sbTarget) ? UI.sbTarget : (tg[0] && tg[0].id);
+  const names = Object.fromEntries(s.els.map(e => [e.id, e.name]));
+  const opts = s.els.map(e => `<option value="${e.id}">${esc(e.name)}</option>`).join("");
+  const guide = sbGuide(sel);
+  const threats = [...s.threats].sort((a, b) => b.like * b.imp - a.like * a.imp);
+  const lvl = ["", "Low", "Medium", "High"];
+  const tname = id => (tg.find(t => t.id === id) || { name: "(deleted)" }).name;
+  const md = ["| ID | Target | STRIDE | Threat | Likelihood | Impact | Risk | Mitigation |", "| --- | --- | --- | --- | --- | --- | --- | --- |"].concat(threats.map(t => `| ${t.code} | ${tname(t.target)} | ${CATS[t.cat].name} | ${t.text} | ${lvl[t.like]} | ${lvl[t.imp]} | ${riskOf(t)} | ${t.mit || "To decide"} |`)).join("\n");
+  return `<div class="wrap">
+  <p class="crumbs"><a href="#home">Home</a></p>
+  <h1>Model your own system</h1>
+  <p class="lead">Draw a real application as a data flow diagram, work through STRIDE with guiding questions for each element, rate the risks and export a threat register.</p>
+  <div class="row" style="margin-bottom:8px"><button class="btn" data-act="sb-example">Load an example</button><button class="btn danger" data-act="sb-clear">${UI.armed === "sb" ? "Click again to clear" : "Clear everything"}</button></div>
+  <h2>1. Draw the system</h2>
+  <div class="two">
+    <div>
+      <div class="panel" style="margin-bottom:16px">
+        <h3 style="margin-top:0">Add an element</h3>
+        <div class="field"><label class="f" for="sb-name">Name</label><input type="text" id="sb-name" placeholder="For example: Web app, Customer, Orders DB" maxlength="40"></div>
+        <div class="field"><label class="f" for="sb-type">Type</label><select id="sb-type"><option value="entity">External entity (a user or outside system)</option><option value="process">Process (code you run)</option><option value="store">Data store (database, file, cache, bucket)</option></select></div>
+        <button class="btn primary" data-act="sb-add-el">Add element</button>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">Add a data flow</h3>
+        ${s.els.length < 2 ? `<p class="muted small">Add at least two elements first.</p>` : `
+        <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label class="f" for="sb-from">From</label><select id="sb-from">${opts}</select></div><div class="field" style="flex:1"><label class="f" for="sb-to">To</label><select id="sb-to">${s.els.map((e, i) => `<option value="${e.id}"${i === 1 ? " selected" : ""}>${esc(e.name)}</option>`).join("")}</select></div></div>
+        <div class="field"><label class="f" for="sb-label">What data moves</label><input type="text" id="sb-label" placeholder="For example: Login, SQL queries" maxlength="28"></div>
+        <label class="check" style="border:0"><input type="checkbox" id="sb-cross"><span>This flow crosses a trust boundary</span></label>
+        <button class="btn primary" data-act="sb-add-flow">Add data flow</button>`}
+      </div>
+    </div>
+    <div>
+      ${s.els.length ? `<div class="board">${renderDFD(sbScenario(), { mode: "sandbox" })}</div><p class="small muted" style="margin-top:8px">Red flows cross a trust boundary. Columns: entities, processes, data stores.</p>` : `<div class="board"><p class="empty">Your diagram appears here. Add a user, the code that serves them and where data is kept.</p></div>`}
+      ${s.els.length ? `<h3>Elements and flows</h3><div class="scroll"><table class="tbl"><tbody>${s.els.map(e => `<tr><td>${esc(e.name)}</td><td class="muted">${TYPE_NAME[e.type]}</td><td class="num"><button class="btn link" data-act="sb-del-el" data-id="${e.id}">Remove</button></td></tr>`).join("")}${s.flows.map(f => `<tr><td>${esc(names[f.from])} → ${esc(names[f.to])}: ${esc(f.label)}</td><td class="muted">${f.crosses ? "Crosses a boundary" : "Data flow"}</td><td class="num"><button class="btn link" data-act="sb-del-flow" data-id="${f.id}">Remove</button></td></tr>`).join("")}</tbody></table></div>` : ""}
+    </div>
+  </div>
+  <h2>2. Find threats with STRIDE</h2>
+  ${tg.length ? `<div class="two"><div class="panel">
+      <div class="field"><label class="f" for="sb-target">Element or flow</label><select id="sb-target">${tg.map(t => `<option value="${t.id}"${t.id === sel ? " selected" : ""}>${esc(t.name)}</option>`).join("")}</select></div>
+      <div id="sb-guide">${guide.html}</div>
+      <div class="field"><label class="f" for="sb-cat">STRIDE category</label><select id="sb-cat">${guide.cats.map(k => `<option value="${k}">${k} ${CATS[k].name}</option>`).join("")}</select></div>
+      <div class="field"><label class="f" for="sb-text">Threat</label><textarea id="sb-text" placeholder="Describe what an attacker could do, to what, and how." maxlength="300"></textarea></div>
+      <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label class="f" for="sb-like">Likelihood</label><select id="sb-like"><option value="1">Low</option><option value="2" selected>Medium</option><option value="3">High</option></select></div><div class="field" style="flex:1"><label class="f" for="sb-imp">Impact</label><select id="sb-imp"><option value="1">Low</option><option value="2" selected>Medium</option><option value="3">High</option></select></div></div>
+      <div class="field"><label class="f" for="sb-mit">Mitigation</label><input type="text" id="sb-mit" placeholder="What will you do about it?" maxlength="200"></div>
+      <button class="btn primary" data-act="sb-add-threat">Add threat</button>
+    </div><div><p>Pick each element and flow in turn and answer its questions. Only the STRIDE categories that usually apply to that element type are offered.</p><p>Risk is likelihood × impact: High when it scores 6 or more, Medium from 3, otherwise Low.</p><p id="sb-msg" class="small" role="status"></p></div></div>` : `<p class="muted">Add elements to your diagram to start finding threats.</p>`}
+  <h2>3. Threat register</h2>
+  ${threats.length ? `<div class="scroll"><table class="tbl"><thead><tr><th>ID</th><th>Target</th><th>STRIDE</th><th>Threat</th><th>Risk</th><th>Mitigation</th><th></th></tr></thead><tbody>${threats.map(t => `<tr><td>${t.code}</td><td>${esc(tname(t.target))}</td><td>${tagHTML(t.cat)}</td><td>${esc(t.text)}</td><td>${riskOf(t)} <span class="muted small">(${lvl[t.like]} × ${lvl[t.imp]})</span></td><td>${esc(t.mit || "To decide")}</td><td class="num"><button class="btn link" data-act="sb-del-threat" data-id="${t.id}">Remove</button></td></tr>`).join("")}</tbody></table></div>
+    <div class="row" style="margin:8px 0"><button class="btn" data-act="copy" data-src="sb-md">Copy as Markdown</button></div><textarea class="copyarea" id="sb-md" readonly aria-label="Your threat register as Markdown">${esc(md)}</textarea>` : `<p class="muted">Threats you add appear here, sorted by risk.</p>`}
+  </div>`;
+}
+function sbExample() {
+  DB.sandbox = { n: 20, els: [
+    { id: "e1", name: "Reader", type: "entity" }, { id: "e2", name: "Author", type: "entity" },
+    { id: "e3", name: "Blog web app", type: "process" }, { id: "e4", name: "Image resizer", type: "process" },
+    { id: "e5", name: "Posts DB", type: "store" }, { id: "e6", name: "Image bucket", type: "store" }
+  ], flows: [
+    { id: "f1", from: "e1", to: "e3", label: "Read posts", crosses: true }, { id: "f2", from: "e2", to: "e3", label: "Write, upload", crosses: true },
+    { id: "f3", from: "e3", to: "e5", label: "Queries", crosses: true }, { id: "f4", from: "e3", to: "e4", label: "Images", crosses: false },
+    { id: "f5", from: "e4", to: "e6", label: "Store image", crosses: true }
+  ], threats: [
+    { id: "t1", code: "T-01", target: "e2", cat: "S", text: "An attacker reuses an author’s leaked password and publishes fake posts.", like: 2, imp: 3, mit: "MFA for authors" },
+    { id: "t2", code: "T-02", target: "e4", cat: "D", text: "A huge image upload exhausts memory in the resizer.", like: 2, imp: 2, mit: "Limit image size and dimensions" }
+  ] };
+}
+
+/* ---------- scoreboard ---------- */
+function viewScores() {
+  const rows = SCEN.map(sc => `<tr><td><a href="#${sc.id}">${esc(sc.title)}</a></td><td>${sc.diff}</td>${Object.keys(LEVELS).map(lv => { const b = DB.best[sc.id + ":" + lv]; return `<td class="num">${b ? `${b.pct}% <span class="muted small">(${b.total}/${b.max})</span>` : "–"}</td>`; }).join("")}</tr>`).join("");
+  const n = sb().threats.length;
+  return `<div class="wrap"><p class="crumbs"><a href="#home">Home</a></p><h1>My progress</h1>
+  <p class="lead">Your best score in each lab at each security level. A score is recorded each time you check a model.</p>
+  <div class="scroll"><table class="tbl"><thead><tr><th>Lab</th><th>Difficulty</th><th class="num">Low</th><th class="num">Medium</th><th class="num">High</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p>Your own system: ${n} threat${n === 1 ? "" : "s"} recorded in <a href="#sandbox">Model your own system</a>.</p>
+  <p class="small muted">Progress is saved in this browser only. Clearing site data or using another device starts fresh.</p>
+  <button class="btn danger" data-act="reset-all">${UI.armed === "all" ? "Click again to reset all progress" : "Reset all progress"}</button></div>`;
+}
+
+/* ---------- render & events ---------- */
+const view = document.getElementById("view"), side = document.getElementById("side"), lvl = document.getElementById("level");
+let route = "home";
+function render(focusId) {
+  const sc = SC(route);
+  side.innerHTML = navHTML(route);
+  lvl.innerHTML = levelHTML();
+  view.innerHTML = route === "primer" ? viewPrimer() : route === "sandbox" ? viewSandbox() : route === "scores" ? viewScores() : sc ? viewScenario(sc) : viewHome();
+  document.title = (sc ? sc.title + " – " : "") + "DVTM: Damn Vulnerable Threat Model";
+  if (focusId) { const el = document.getElementById(focusId); if (el) el.focus({ preventScroll: true }); }
+}
+function go() {
+  const h = (location.hash || "").slice(1);
+  route = ["primer", "sandbox", "scores"].includes(h) || SC(h) ? h : "home";
+  UI.armed = null; render(); window.scrollTo(0, 0);
+}
+window.addEventListener("hashchange", go);
+function rerender() { const id = document.activeElement && document.activeElement.id; render(id); }
+function onTarget(id) {
+  const sc = SC(route); if (!sc) return; const st = scState(sc.id), tab = UI.tab[sc.id];
+  if (tab === "bound") { st.bound[id] = !st.bound[id]; save(); rerender(); return; }
+  if (tab === "threat") { UI.sel[sc.id] = id; render("t-" + id); if (window.innerWidth < 1100) { const p = document.getElementById("panel"); if (p) p.scrollIntoView({ block: "start" }); } }
+}
+view.addEventListener("click", e => {
+  const tg = e.target.closest("[data-target]"); if (tg) { onTarget(tg.dataset.target); return; }
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const a = b.dataset.act, sc = SC(route), st = sc ? scState(sc.id) : null;
+  if (a !== "reset-sc" && a !== "reset-all" && a !== "sb-clear") UI.armed = null;
+  if (a === "tab") { UI.tab[sc.id] = b.dataset.tab; render("tab-" + b.dataset.tab); document.querySelector(".steps").scrollIntoView({ block: "nearest" }); }
+  else if (a === "pick") { UI.sel[sc.id] = b.dataset.id; render(); const p = document.getElementById("panel"); if (p) { if (window.innerWidth < 1100 || p.getBoundingClientRect().top < 0) p.scrollIntoView({ block: "start" }); const f = p.querySelector("h2"); if (f) { f.tabIndex = -1; f.focus({ preventScroll: true }); } } }
+  else if (a === "cat") { const t = b.dataset.tid; st.ans[t] = st.ans[t] === b.dataset.cat ? undefined : b.dataset.cat; if (!st.ans[t]) delete st.ans[t]; save(); rerender(); }
+  else if (a === "hint") { st.hints[b.dataset.tid] = true; save(); render(); }
+  else if (a === "check") { st.checked = true; const r = score(sc, st), k = sc.id + ":" + DB.level, prev = DB.best[k]; if (!prev || r.total > prev.total) DB.best[k] = { total: r.total, max: r.max, pct: r.pct, date: new Date().toISOString().slice(0, 10) }; UI.tab[sc.id] = "results"; save(); render("tab-results"); document.querySelector(".steps").scrollIntoView({ block: "start" }); }
+  else if (a === "reset-sc") { if (UI.armed === "sc-" + sc.id) { delete DB.sc[sc.id]; UI.sel[sc.id] = null; UI.tab[sc.id] = "brief"; UI.armed = null; save(); render(); window.scrollTo(0, 0); } else { UI.armed = "sc-" + sc.id; rerender(); } }
+  else if (a === "reset-all") { if (UI.armed === "all") { DB = { level: DB.level, sc: {}, best: {}, sandbox: null }; UI.armed = null; save(); render(); } else { UI.armed = "all"; rerender(); } }
+  else if (a === "copy") { const ta = document.getElementById(b.dataset.src); const done = ok => { b.textContent = ok ? "Copied" : "Select the text below and copy it"; setTimeout(() => { b.textContent = "Copy as Markdown"; }, 2200); }; try { navigator.clipboard.writeText(ta.value).then(() => done(true), () => { ta.select(); done(false); }); } catch (err) { ta.select(); done(false); } }
+  else if (a.startsWith("sb-")) sandboxAct(a, b);
+});
+view.addEventListener("keydown", e => { const tg = e.target.closest && e.target.closest("[data-target]"); if (tg && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onTarget(tg.dataset.target); } });
+view.addEventListener("change", e => {
+  const el = e.target, sc = SC(route);
+  if (el.dataset.mit) { const st = scState(sc.id); st.mit[el.dataset.mit] = Number(el.value); save(); }
+  else if (el.dataset.bound) { const st = scState(sc.id); st.bound[el.dataset.bound] = el.checked; save(); rerender(); }
+  else if (el.id === "sb-target") { UI.sbTarget = el.value; const g = sbGuide(el.value); document.getElementById("sb-guide").innerHTML = g.html; document.getElementById("sb-cat").innerHTML = g.cats.map(k => `<option value="${k}">${k} ${CATS[k].name}</option>`).join(""); }
+});
+document.getElementById("level").addEventListener("click", e => { const b = e.target.closest("[data-level]"); if (!b) return; DB.level = b.dataset.level; save(); render(); const nb = document.querySelector(`[data-level="${DB.level}"]`); if (nb) nb.focus(); });
+function sandboxAct(a, b) {
+  const s = sb(), val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; }, msg = t => { const m = document.getElementById("sb-msg"); if (m) m.textContent = t; };
+  if (a === "sb-add-el") { const name = val("sb-name"); if (!name) { document.getElementById("sb-name").focus(); return; } s.els.push({ id: "e" + s.n++, name, type: val("sb-type") }); save(); render("sb-name"); }
+  else if (a === "sb-add-flow") { const from = val("sb-from"), to = val("sb-to"), label = val("sb-label"); if (from === to) { alertIn("sb-to", "Choose two different elements."); return; } if (!label) { document.getElementById("sb-label").focus(); return; } s.flows.push({ id: "f" + s.n++, from, to, label, crosses: document.getElementById("sb-cross").checked }); save(); render("sb-label"); }
+  else if (a === "sb-del-el") { const id = b.dataset.id; const fl = s.flows.filter(f => f.from === id || f.to === id).map(f => f.id); s.els = s.els.filter(e => e.id !== id); s.flows = s.flows.filter(f => !fl.includes(f.id)); s.threats = s.threats.filter(t => t.target !== id && !fl.includes(t.target)); save(); render(); }
+  else if (a === "sb-del-flow") { const id = b.dataset.id; s.flows = s.flows.filter(f => f.id !== id); s.threats = s.threats.filter(t => t.target !== id); save(); render(); }
+  else if (a === "sb-add-threat") { const text = val("sb-text"); if (!text) { document.getElementById("sb-text").focus(); msg("Describe the threat before adding it."); return; } const target = val("sb-target"); UI.sbTarget = target; const num = s.threats.reduce((m, t) => Math.max(m, parseInt(t.code.slice(2), 10) || 0), 0) + 1; s.threats.push({ id: "t" + s.n++, code: "T-" + String(num).padStart(2, "0"), target, cat: val("sb-cat"), text, like: +val("sb-like"), imp: +val("sb-imp"), mit: val("sb-mit") }); save(); render("sb-text"); const m = document.getElementById("sb-msg"); if (m) m.textContent = "Threat added to the register."; }
+  else if (a === "sb-del-threat") { s.threats = s.threats.filter(t => t.id !== b.dataset.id); save(); render(); }
+  else if (a === "sb-example") { sbExample(); UI.sbTarget = null; save(); render(); }
+  else if (a === "sb-clear") { if (UI.armed === "sb") { DB.sandbox = null; UI.armed = null; save(); render(); } else { UI.armed = "sb"; rerender(); } }
+}
+function alertIn(id, text) { const el = document.getElementById(id); if (el) { el.setCustomValidity(text); el.reportValidity(); setTimeout(() => el.setCustomValidity(""), 2500); } }
+go();
+</script>
+</body></html>
